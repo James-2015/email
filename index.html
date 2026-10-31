@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>邮件加密系统 · 本地AES加解密</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: linear-gradient(145deg, #f5f7fa 0%, #e9edf2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1.5rem;
+        }
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 3rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3), inset 0 1px 2px rgba(255,255,255,0.7);
+            padding: 2.5rem;
+            border: 1px solid rgba(255,255,255,0.6);
+        }
+        h1 {
+            font-size: 2.4rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            color: #0b1e33;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+        h1 svg {
+            width: 2.4rem;
+            height: 2.4rem;
+            stroke: #1e4a7a;
+            stroke-width: 1.8;
+            fill: none;
+        }
+        .subhead {
+            font-size: 1rem;
+            color: #2c3e50c0;
+            margin-bottom: 2.2rem;
+            border-left: 4px solid #1e4a7a;
+            padding-left: 1.2rem;
+            font-weight: 400;
+            background: rgba(30, 74, 122, 0.04);
+            border-radius: 0 12px 12px 0;
+            padding: 0.8rem 1.2rem;
+        }
+        .subhead strong {
+            color: #0b1e33;
+            font-weight: 600;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.8rem;
+        }
+        @media (max-width: 700px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            .container {
+                padding: 1.8rem;
+            }
+            h1 {
+                font-size: 1.9rem;
+            }
+        }
+        .card {
+            background: #ffffffd9;
+            backdrop-filter: blur(8px);
+            border-radius: 2rem;
+            padding: 1.8rem 1.6rem;
+            box-shadow: 0 8px 20px -8px rgba(0, 20, 40, 0.2), inset 0 1px 0 #ffffff;
+            border: 1px solid #ffffff;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.2s ease;
+        }
+        .card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 18px 30px -12px rgba(0, 20, 40, 0.3), inset 0 1px 0 #ffffff;
+        }
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin-bottom: 1.4rem;
+        }
+        .card-header svg {
+            width: 1.8rem;
+            height: 1.8rem;
+            stroke: #1e4a7a;
+            stroke-width: 1.8;
+            fill: none;
+        }
+        .card-header h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #122b44;
+        }
+        .field {
+            margin-bottom: 1.3rem;
+            display: flex;
+            flex-direction: column;
+        }
+        .field label {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #1f3a57;
+            margin-bottom: 0.4rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .field label .badge {
+            background: #eef3f9;
+            border-radius: 40px;
+            padding: 0.1rem 0.6rem;
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: #1e4a7a;
+            border: 1px solid #bdd1e6;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 0.9rem 1.1rem;
+            font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+            font-size: 0.95rem;
+            background: #fbfdff;
+            border: 1px solid #cbdae9;
+            border-radius: 1.3rem;
+            outline: none;
+            transition: 0.2s;
+            color: #0b1e33;
+            resize: vertical;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+        }
+        input:focus, textarea:focus {
+            border-color: #1e4a7a;
+            box-shadow: 0 0 0 4px rgba(30, 74, 122, 0.15), inset 0 1px 3px #fff;
+            background: #ffffff;
+        }
+        textarea {
+            min-height: 110px;
+            line-height: 1.5;
+        }
+        .password-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .password-wrapper input {
+            padding-right: 3rem;
+        }
+        .toggle-password {
+            position: absolute;
+            right: 1rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.6;
+            transition: 0.2s;
+        }
+        .toggle-password:hover {
+            opacity: 1;
+        }
+        .toggle-password svg {
+            width: 1.2rem;
+            height: 1.2rem;
+            stroke: #1e4a7a;
+            fill: none;
+        }
+        .btn {
+            background: #1e4a7a;
+            color: white;
+            border: none;
+            border-radius: 2.5rem;
+            padding: 0.9rem 1.5rem;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            box-shadow: 0 8px 16px -6px #1e4a7a80;
+            margin-top: 0.4rem;
+            letter-spacing: 0.3px;
+            border: 1px solid #ffffff30;
+        }
+        .btn svg {
+            width: 1.3rem;
+            height: 1.3rem;
+            stroke: currentColor;
+            stroke-width: 2;
+            fill: none;
+        }
+        .btn:hover {
+            background: #133b60;
+            transform: scale(1.02);
+            box-shadow: 0 12px 20px -8px #1e4a7a;
+        }
+        .btn:active {
+            transform: scale(0.98);
+        }
+        .btn-outline {
+            background: transparent;
+            color: #1e4a7a;
+            border: 1.5px solid #1e4a7a70;
+            box-shadow: none;
+        }
+        .btn-outline:hover {
+            background: #1e4a7a10;
+            color: #0f2c4b;
+            border-color: #1e4a7a;
+            transform: scale(1.02);
+            box-shadow: none;
+        }
+        .btn-group {
+            display: flex;
+            gap: 0.8rem;
+            margin-top: 0.6rem;
+            flex-wrap: wrap;
+        }
+        .btn-group .btn {
+            flex: 1 1 auto;
+        }
+        .message {
+            margin-top: 1rem;
+            padding: 0.8rem 1.2rem;
+            border-radius: 2rem;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+            background: #f0f6fe;
+            color: #0b2b4a;
+            border: 1px solid #b8d1e9;
+            box-shadow: inset 0 1px 3px #ffffff;
+            transition: 0.2s;
+            word-break: break-word;
+        }
+        .message.error {
+            background: #ffeae9;
+            color: #aa2e2e;
+            border-color: #e6b3b3;
+        }
+        .message svg {
+            flex-shrink: 0;
+            width: 1.2rem;
+            height: 1.2rem;
+            stroke: currentColor;
+            stroke-width: 2;
+            fill: none;
+        }
+        .message .text {
+            flex: 1;
+            font-family: 'SF Mono', monospace;
+            font-size: 0.85rem;
+            overflow-wrap: break-word;
+        }
+        .copy-btn {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 0.2rem 0.4rem;
+            border-radius: 2rem;
+            color: #1e4a7a;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.2rem;
+            transition: 0.15s;
+        }
+        .copy-btn:hover {
+            background: #1e4a7a15;
+        }
+        .copy-btn svg {
+            width: 0.9rem;
+            height: 0.9rem;
+            stroke: currentColor;
+            stroke-width: 2;
+            fill: none;
+        }
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin: 1.2rem 0 0.6rem;
+            color: #587a9e;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        .divider::before, .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, #cbdae9, transparent);
+        }
+        .footer {
+            margin-top: 2.5rem;
+            text-align: center;
+            font-size: 0.8rem;
+            color: #6482a0;
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            align-items: center;
+            border-top: 1px dashed #b8cde0;
+            padding-top: 1.5rem;
+        }
+        .footer svg {
+            width: 1rem;
+            height: 1rem;
+            stroke: #6482a0;
+            fill: none;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="4" width="20" height="16" rx="4" />
+            <path d="M22 7L12 13L2 7" />
+        </svg>
+        邮件加密系统
+    </h1>
+    <div class="subhead">
+        <strong>🔐 端到端本地加密</strong> — 使用 AES-256-GCM 算法，所有加解密均在浏览器中完成，密钥永不离开您的设备。
+    </div>
+
+    <div class="grid">
+        <!-- 加密面板 -->
+        <div class="card">
+            <div class="card-header">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                <h2>加密邮件</h2>
+            </div>
+            <div class="field">
+                <label>邮件正文 <span class="badge">明文</span></label>
+                <textarea id="plainText" placeholder="输入需要加密的邮件内容…" rows="3">这是一封加密邮件，只有持有密钥的人才能阅读。</textarea>
+            </div>
+            <div class="field">
+                <label>加密密钥 <span class="badge">AES-256</span></label>
+                <div class="password-wrapper">
+                    <input type="password" id="encryptPassword" placeholder="输入密钥 (不少于8个字符)" value="MySecretKey123!">
+                    <button class="toggle-password" onclick="togglePassword('encryptPassword', this)" aria-label="显示/隐藏密钥">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                            <circle cx="12" cy="12" r="3" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <button class="btn" id="encryptBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2L15 9L22 9L16.5 13.5L19 21L12 16.5L5 21L7.5 13.5L2 9L9 9L12 2Z" />
+                </svg>
+                立即加密
+            </button>
+            <div class="divider">加密结果</div>
+            <div class="field">
+                <textarea id="cipherText" placeholder="加密后的密文将显示在这里…" rows="3" readonly></textarea>
+            </div>
+            <div class="message" id="encryptMessage">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                <span class="text">等待加密… 输入正文和密钥后点击加密。</span>
+            </div>
+        </div>
+
+        <!-- 解密面板 -->
+        <div class="card">
+            <div class="card-header">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                    <path d="M7 11V7a5 5 0 0 1 9.9-1" />
+                </svg>
+                <h2>解密邮件</h2>
+            </div>
+            <div class="field">
+                <label>密文 <span class="badge">Base64 + GCM</span></label>
+                <textarea id="decryptCipher" placeholder="粘贴需要解密的邮件密文…" rows="3"></textarea>
+            </div>
+            <div class="field">
+                <label>解密密钥 <span class="badge">同一密钥</span></label>
+                <div class="password-wrapper">
+                    <input type="password" id="decryptPassword" placeholder="输入加密时使用的密钥" value="MySecretKey123!">
+                    <button class="toggle-password" onclick="togglePassword('decryptPassword', this)" aria-label="显示/隐藏密钥">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                            <circle cx="12" cy="12" r="3" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <button class="btn" id="decryptBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 20L20 4" />
+                    <path d="M8 4L4 8" />
+                    <path d="M16 20L20 16" />
+                </svg>
+                立即解密
+            </button>
+            <div class="divider">解密结果</div>
+            <div class="field">
+                <textarea id="decryptPlain" placeholder="解密后的明文将显示在这里…" rows="3" readonly></textarea>
+            </div>
+            <div class="message" id="decryptMessage">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                <span class="text">等待解密… 粘贴密文并输入密钥。</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 快捷操作栏：将加密结果一键填入解密区 -->
+    <div style="display: flex; justify-content: flex-end; margin-top: 1.2rem;">
+        <button class="btn btn-outline" id="transferBtn" style="padding: 0.6rem 1.5rem; font-size: 0.9rem;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:1rem;height:1rem;">
+                <path d="M7 10L12 15L17 10" />
+                <path d="M12 15V3" />
+                <path d="M5 21H19" />
+            </svg>
+            将密文填入解密区
+        </button>
+    </div>
+
+    <div class="footer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="4" width="20" height="16" rx="4" />
+            <path d="M22 7L12 13L2 7" />
+        </svg>
+        所有加解密均在本地完成 · 使用 Web Crypto API AES-GCM 256
+    </div>
+</div>
+
+<script>
+    // ==================== 工具函数 ====================
+    // 显示/隐藏密码
+    window.togglePassword = function(inputId, btn) {
+        const input = document.getElementById(inputId);
+        if (input.type === 'password') {
+            input.type = 'text';
+            btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+        } else {
+            input.type = 'password';
+            btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+        }
+    };
+
+    // 更新消息框
+    function setMessage(elementId, text, isError = false) {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+        const textSpan = el.querySelector('.text');
+        if (textSpan) textSpan.textContent = text;
+        else el.textContent = text;
+        if (isError) el.classList.add('error');
+        else el.classList.remove('error');
+    }
+
+    // 清空消息样式（变为中性）
+    function resetMessage(elementId, text) {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+        const textSpan = el.querySelector('.text');
+        if (textSpan) textSpan.textContent = text;
+        el.classList.remove('error');
+    }
+
+    // ==================== 加密/解密核心 ====================
+    // 从密码派生密钥 (PBKDF2 + SHA-256)
+    async function deriveKey(password, salt) {
+        const enc = new TextEncoder();
+        const passwordBuffer = enc.encode(password);
+        const baseKey = await window.crypto.subtle.importKey(
+            'raw',
+            passwordBuffer,
+            { name: 'PBKDF2' },
+            false,
+            ['deriveKey']
+        );
+        return window.crypto.subtle.deriveKey(
+            {
+                name: 'PBKDF2',
+                salt: salt,
+                iterations: 100000,
+                hash: 'SHA-256'
+            },
+            baseKey,
+            { name: 'AES-GCM', length: 256 },
+            false,
+            ['encrypt', 'decrypt']
+        );
+    }
+
+    // 加密: 返回 Base64 字符串 (salt + iv + ciphertext)
+    async function encryptMail(plaintext, password) {
+        const enc = new TextEncoder();
+        const salt = window.crypto.getRandomValues(new Uint8Array(16)); // 16字节盐
+        const iv = window.crypto.getRandomValues(new Uint8Array(12));   // 12字节IV (GCM推荐)
+        const key = await deriveKey(password, salt);
+
+        const ciphertextBuffer = await window.crypto.subtle.encrypt(
+            { name: 'AES-GCM', iv: iv },
+            key,
+            enc.encode(plaintext)
+        );
+
+        // 组合: salt (16) + iv (12) + ciphertext
+        const ciphertext = new Uint8Array(ciphertextBuffer);
+        const combined = new Uint8Array(salt.length + iv.length + ciphertext.length);
+        combined.set(salt, 0);
+        combined.set(iv, salt.length);
+        combined.set(ciphertext, salt.length + iv.length);
+
+        // 转为 Base64
+        return btoa(String.fromCharCode(...combined));
+    }
+
+    // 解密: 输入 Base64 字符串和密码
+    async function decryptMail(encryptedBase64, password) {
+        // Base64 转 Uint8Array
+        const binaryString = atob(encryptedBase64);
+        const combined = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            combined[i] = binaryString.charCodeAt(i);
+        }
+
+        // 分离 salt, iv, ciphertext
+        if (combined.length < 16 + 12 + 1) {
+            throw new Error('密文格式无效：数据长度不足');
+        }
+        const salt = combined.slice(0, 16);
+        const iv = combined.slice(16, 28);
+        const ciphertext = combined.slice(28);
+
+        const key = await deriveKey(password, salt);
+        const plaintextBuffer = await window.crypto.subtle.decrypt(
+            { name: 'AES-GCM', iv: iv },
+            key,
+            ciphertext
+        );
+
+        return new TextDecoder().decode(plaintextBuffer);
+    }
+
+    // ==================== 界面交互 ====================
+    const encryptBtn = document.getElementById('encryptBtn');
+    const decryptBtn = document.getElementById('decryptBtn');
+    const plainTextArea = document.getElementById('plainText');
+    const cipherTextArea = document.getElementById('cipherText');
+    const decryptCipherArea = document.getElementById('decryptCipher');
+    const decryptPlainArea = document.getElementById('decryptPlain');
+    const encryptPassword = document.getElementById('encryptPassword');
+    const decryptPassword = document.getElementById('decryptPassword');
+    const encryptMsg = document.getElementById('encryptMessage');
+    const decryptMsg = document.getElementById('decryptMessage');
+    const transferBtn = document.getElementById('transferBtn');
+
+    // 加密按钮事件
+    encryptBtn.addEventListener('click', async () => {
+        const plaintext = plainTextArea.value.trim();
+        const password = encryptPassword.value;
+
+        if (!plaintext) {
+            setMessage('encryptMessage', '❌ 邮件正文不能为空', true);
+            return;
+        }
+        if (!password || password.length < 8) {
+            setMessage('encryptMessage', '❌ 密钥必须至少8个字符', true);
+            return;
+        }
+
+        try {
+            setMessage('encryptMessage', '⏳ 正在加密…');
+            const encryptedBase64 = await encryptMail(plaintext, password);
+            cipherTextArea.value = encryptedBase64;
+            setMessage('encryptMessage', '✅ 加密成功！密文已生成，可复制或一键填入解密区。');
+        } catch (err) {
+            console.error(err);
+            setMessage('encryptMessage', `❌ 加密失败: ${err.message}`, true);
+            cipherTextArea.value = '';
+        }
+    });
+
+    // 解密按钮事件
+    decryptBtn.addEventListener('click', async () => {
+        const cipherBase64 = decryptCipherArea.value.trim();
+        const password = decryptPassword.value;
+
+        if (!cipherBase64) {
+            setMessage('decryptMessage', '❌ 密文不能为空', true);
+            return;
+        }
+        if (!password) {
+            setMessage('decryptMessage', '❌ 请输入解密密钥', true);
+            return;
+        }
+
+        try {
+            setMessage('decryptMessage', '⏳ 正在解密…');
+            const plaintext = await decryptMail(cipherBase64, password);
+            decryptPlainArea.value = plaintext;
+            setMessage('decryptMessage', '✅ 解密成功！');
+        } catch (err) {
+            console.error(err);
+            // 更友好的错误提示
+            let userMessage = '解密失败：密钥错误或密文被篡改。';
+            if (err.name === 'OperationError' || err.message.includes('decrypt')) {
+                userMessage = '❌ 解密失败：密钥不正确或密文损坏。';
+            } else if (err.message.includes('Base64') || err.message.includes('格式')) {
+                userMessage = '❌ 密文格式无效，请检查是否完整。';
+            } else {
+                userMessage = `❌ 解密失败: ${err.message}`;
+            }
+            setMessage('decryptMessage', userMessage, true);
+            decryptPlainArea.value = '';
+        }
+    });
+
+    // 一键将密文填入解密区
+    transferBtn.addEventListener('click', () => {
+        const cipher = cipherTextArea.value.trim();
+        if (!cipher) {
+            setMessage('encryptMessage', '⚠️ 还没有生成密文，请先加密', true);
+            return;
+        }
+        decryptCipherArea.value = cipher;
+        // 同时把密钥也带过去（方便测试，但实际场景用户需手动输入）
+        // 这里只做密文转移，密钥仍由用户决定。但为了体验，如果加密密钥存在且解密密钥为空，可以填充？
+        // 更好的做法：用户可能希望密钥也复制过去。但安全起见，只复制密文。不过为了方便演示，我们检查如果解密密码为空则填充
+        // 但为了不过度影响安全性，这里只复制密文。用户手动输入密钥。
+        // 但为了演示流程顺畅，如果加密密码和解密密码不同，也没关系。
+        // 还可以添加一个“复制密钥”功能，但算了。就让用户自己填吧。
+        // 但为了更贴心，如果解密密钥为空，我们自动填充为加密密钥? 不，可能引起误解。还是让用户主动。
+        // 但是用户可以自己点击显示密钥查看。所以就这样。
+        // 不过很多演示会直接填充密钥，为了用户体验，我这里直接同时填充密钥（如果解密密钥为空的话）
+        if (!decryptPassword.value) {
+            decryptPassword.value = encryptPassword.value;
+        }
+        // 滚动到解密区域？
+        decryptCipherArea.focus();
+        setMessage('decryptMessage', '📋 密文已填入，请检查密钥并点击解密。');
+    });
+
+    // 初始化一些示例数据（可选）
+    window.addEventListener('load', () => {
+        // 给解密区一个密文示例？不，让用户自己加密试试。
+        // 但为了方便测试，如果解密区为空，可以自动填入加密后的示例？不，保持干净。
+        // 设置默认消息
+        resetMessage('encryptMessage', '等待加密… 输入正文和密钥后点击加密。');
+        resetMessage('decryptMessage', '等待解密… 粘贴密文并输入密钥。');
+        // 如果加密密文为空，啥也不做。
+        // 但可以给解密区放个提示文本
+    });
+
+    // 附加：点击复制密文? 没做按钮，但可以增加右键复制。textarea本身可选。
+    // 增加一个监听：如果用户点击加密结果区域，自动选中
+    cipherTextArea.addEventListener('click', function() {
+        this.select();
+    });
+    decryptPlainArea.addEventListener('click', function() {
+        this.select();
+    });
+
+    // 错误处理和边界
+    // 若加密时没有密钥，或者解密错误等，已处理
+</script>
+</body>
+</html>
